@@ -5,89 +5,79 @@ import hljs from 'highlight.js/lib/common'
 import 'highlight.js/styles/atom-one-dark.css'
 
 // --- Configuración de Pestañas ---
-const tabs = ['DNS Master', 'Base de Datos', 'Proxy Squid']
-const activeTab = ref('DNS Master')
+const tabs = ['Servidor Web', 'Entorno de Pruebas', 'Servicios Auxiliares']
+const activeTab = ref('Servidor Web')
 
 // --- Datos de las Secciones (Ejemplos) ---
-// Organizamos la información por pestaña.
 const sectionsByTab = ref({
-  'DNS Master': [
+  'Servidor Web': [
     {
-      id: 'dns-info',
-      title: 'Información del Servidor NEWTON',
-      description: 'Configuración general de red y detalles básicos del servidor Newton. Actúa como servidor principal de nombres de dominio (DNS Master).',
-      code: `Nombre: NEWTON
-IP: 172.17.2.4
-Servicios: Bind9 (DNS Master), Base de Datos, Proxy Squid
-Ubicación: Rack de servidores principal
+      id: 'darwin-info',
+      title: 'Información del Servidor DARWIN',
+      description: 'Detalles básicos del servidor Darwin. Actúa como el host principal para los sistemas y aplicaciones web de uso interno en Fundacite Sucre.',
+      code: `Nombre: DARWIN
+IP: 172.17.2.6
+Servicios: Apache/Nginx, PHP, Servidor Web Interno
+Ubicación: Rack de servidores secundario
 
 # aqui cambia por los valores reales`,
       image: ''
     },
     {
-      id: 'dns-bind',
-      title: 'Configuración de Zona en Bind9 (/etc/bind/named.conf.local)',
-      description: 'Definición de la zona maestra para el dominio interno.',
-      code: `// Ejemplo de configuración de la zona de resolución directa
-zone "fundacite-sucre.gob.ve" {
-    type master;
-    file "/etc/bind/db.fundacite-sucre";
-    allow-transfer { 172.17.2.20; }; // IP del DNS secundario
-};
+      id: 'darwin-apache',
+      title: 'Configuración VirtualHost Apache (/etc/apache2/sites-available/intranet.conf)',
+      description: 'Ejemplo de configuración de un VirtualHost para alojar el sistema interno.',
+      code: `<VirtualHost *:80>
+    ServerName intranet.fundacite-sucre.gob.ve
+    ServerAdmin webmaster@fundacite-sucre.gob.ve
+    DocumentRoot /var/www/html/intranet
 
-// Ejemplo de configuración de la zona de resolución inversa
-zone "2.17.172.in-addr.arpa" {
-    type master;
-    file "/etc/bind/db.172.17.2";
-};
+    <Directory /var/www/html/intranet>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
 
-# aqui cambia por los valores reales`,
-      image: ''
-    }
-  ],
-  'Base de Datos': [
-    {
-      id: 'db-config',
-      title: 'Configuración de Conexión Base de Datos (Ejemplo PostgreSQL/MySQL)',
-      description: 'Ajuste de los parámetros de red para permitir conexiones desde los servidores de aplicaciones de la red local.',
-      code: `# Configuración de escucha de red (Ejemplo postgresql.conf)
-# Escuchar en la IP local de Newton y en localhost
-listen_addresses = '172.17.2.4, localhost'
-port = 5432
-max_connections = 100
-
-# Control de acceso (pg_hba.conf)
-# TYPE  DATABASE        USER            ADDRESS                 METHOD
-host    all             all             172.17.2.0/24           md5
+    ErrorLog \${APACHE_LOG_DIR}/intranet_error.log
+    CustomLog \${APACHE_LOG_DIR}/intranet_access.log combined
+</VirtualHost>
 
 # aqui cambia por los valores reales`,
       image: ''
     }
   ],
-  'Proxy Squid': [
+  'Entorno de Pruebas': [
     {
-      id: 'squid-config',
-      title: 'Archivo de configuración: /etc/squid/squid.conf',
-      description: 'Configuración de Listas de Control de Acceso (ACL) y puertos para el proxy de navegación web.',
-      code: `# Puerto de escucha del proxy
-http_port 3128
+      id: 'darwin-docker',
+      title: 'Configuración Docker Compose para Pruebas',
+      description: 'Entorno contenerizado para despliegue de pruebas de nuevas aplicaciones sin afectar producción.',
+      code: `version: '3.8'
+services:
+  app_test:
+    image: php:8.1-apache
+    ports:
+      - "8080:80"
+    volumes:
+      - ./test_app:/var/www/html
+    environment:
+      - DB_HOST=172.17.2.4
+      - DB_USER=usuario_prueba
+      - DB_PASS=clave_prueba
 
-# Definición de la red local (Fundacite Sucre)
-acl red_local src 172.17.2.0/24
+# aqui cambia por los valores reales`,
+      image: ''
+    }
+  ],
+  'Servicios Auxiliares': [
+    {
+      id: 'darwin-cron',
+      title: 'Tareas Programadas (Crontab)',
+      description: 'Scripts de mantenimiento rutinario ejecutados en el servidor web.',
+      code: `# Limpieza de sesiones PHP antiguas todos los días a las 2 AM
+0 2 * * * root /usr/bin/find /var/lib/php/sessions -type f -cmin +2 -name "sess_*" -exec rm -f {} \\;
 
-# Puertos seguros permitidos
-acl SSL_ports port 443
-acl Safe_ports port 80          # http
-acl Safe_ports port 21          # ftp
-acl Safe_ports port 443         # https
-
-# Reglas de acceso
-http_access deny !Safe_ports
-http_access deny CONNECT !SSL_ports
-
-# Permitir a la red local y denegar el resto
-http_access allow red_local
-http_access deny all
+# Sincronización de logs web hacia el servidor de respaldos (Galileo) cada domingo
+0 3 * * 0 root rsync -avz /var/log/apache2/ 172.17.2.10:/respaldos/darwin_logs/
 
 # aqui cambia por los valores reales`,
       image: ''
@@ -122,9 +112,7 @@ const copyCode = async (id, text) => {
 </script>
 
 <template>
-  <!-- Contenedor principal -->
   <div class="doc-container">
-
     <!-- Navegación -->
     <div class="nav-links">
       <router-link to="/" class="nav-btn">Ir al Menú Principal</router-link>
@@ -133,8 +121,8 @@ const copyCode = async (id, text) => {
 
     <!-- Encabezado -->
     <header class="doc-header">
-      <h1>Servidor NEWTON (172.17.2.4)</h1>
-      <p>Gestión de DNS Master, Base de Datos y Proxy Squid.</p>
+      <h1>Servidor DARWIN (172.17.2.6)</h1>
+      <p>Gestión de Servidor Web Interno, Entorno de Pruebas y Servicios Auxiliares.</p>
     </header>
 
     <!-- Selector de Pestañas -->
@@ -151,18 +139,14 @@ const copyCode = async (id, text) => {
 
     <!-- Contenido Dinámico según Pestaña Activa -->
     <div v-for="section in sectionsByTab[activeTab]" :key="section.id" class="doc-section">
-
-      <!-- Título de la Sección -->
       <div class="section-header">
         <h2>{{ section.title }}</h2>
       </div>
 
-      <!-- Descripción -->
       <div class="section-description">
         <p>{{ section.description }}</p>
       </div>
 
-      <!-- Bloque de Código Editable -->
       <div v-if="section.code" class="section-code">
         <div class="code-header">
           <span class="code-label">Configuración / Código</span>
@@ -171,7 +155,6 @@ const copyCode = async (id, text) => {
           </button>
         </div>
 
-        <!-- Área de Edición vs Vista Previa -->
         <div v-if="editingId === section.id">
           <textarea
             v-model="section.code"
@@ -186,113 +169,39 @@ const copyCode = async (id, text) => {
         </div>
       </div>
 
-      <!-- Imagen (si existe) -->
       <div v-if="section.image" class="section-image">
         <img :src="section.image" :alt="section.title" />
       </div>
-
     </div>
-
   </div>
 </template>
 
 <style scoped>
 /* --- Estilos Generales Replicados --- */
-
-/* Navegación */
-.nav-links {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.nav-btn {
-  background-color: #007bff;
-  color: white;
-  padding: 10px 20px;
-  border-radius: 5px;
-  text-decoration: none;
-  font-weight: bold;
-  transition: background-color 0.3s;
-}
+.nav-links { display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; }
+.nav-btn { background-color: #007bff; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; transition: background-color 0.3s; }
 .nav-btn:hover { background-color: #0056b3; }
-
-/* Contenedor */
-.doc-container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px;
-  font-family: 'Segoe UI', sans-serif;
-  color: #333;
-}
-
-.doc-header {
-  text-align: center;
-  margin-bottom: 40px;
-  border-bottom: 2px solid #eee;
-}
-
-/* Pestañas */
-.tabs {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 30px;
-}
-
-.tab-btn {
-  background-color: #f8f9fa;
-  border: 1px solid #ddd;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-weight: bold;
-  color: #555;
-  transition: all 0.2s;
-}
-
+.doc-container { max-width: 900px; margin: 0 auto; padding: 20px; font-family: 'Segoe UI', sans-serif; color: #333; }
+.doc-header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; }
+.tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; }
+.tab-btn { background-color: #f8f9fa; border: 1px solid #ddd; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; color: #555; transition: all 0.2s; }
 .tab-btn:hover { background-color: #e2e6ea; }
 .tab-btn.active { background-color: #007bff; color: white; border-color: #007bff; }
-
-/* Secciones */
-.doc-section {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  margin-bottom: 40px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-  overflow: hidden;
-}
-
+.doc-section { background: white; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden; }
 .section-header { background-color: #f8f9fa; padding: 15px 20px; border-bottom: 1px solid #eee; }
 .section-header h2 { margin: 0; font-size: 1.3rem; color: #2c3e50; }
 .section-description { padding: 15px 20px; background-color: #fff; }
 .section-description p { margin: 0; line-height: 1.6; }
-
-/* Código */
 .section-code { padding: 20px; background-color: #f8f9fa; border-top: 1px solid #eee; border-bottom: 1px solid #eee; }
 .code-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .code-label { font-weight: bold; color: #555; font-size: 0.9rem; }
 .copy-btn { background-color: #fff; border: 1px solid #ccc; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
 .copy-btn:hover { background-color: #f0f0f0; border-color: #bbb; }
-
-.code-preview {
-  cursor: pointer; background-color: #282c34; border: 1px solid #181a1f;
-  border-radius: 4px; resize: vertical; min-height: 50px; max-height: 500px; overflow: auto;
-}
+.code-preview { cursor: pointer; background-color: #282c34; border: 1px solid #181a1f; border-radius: 4px; resize: vertical; min-height: 50px; max-height: 500px; overflow: auto; }
 .code-preview pre { margin: 0; padding: 0; background: transparent !important; }
 .hljs { padding: 15px !important; background: transparent !important; }
-
-.section-code textarea {
-  width: 100%; border: 1px solid #181a1f; background-color: #282c34; color: #abb2bf;
-  caret-color: #528bff; font-family: 'Fira Code', 'Courier New', monospace; font-size: 0.9rem;
-  line-height: 1.5; padding: 15px; border-radius: 4px; box-sizing: border-box; outline: none;
-  display: block; resize: vertical; max-height: 500px; overflow: auto;
-}
+.section-code textarea { width: 100%; border: 1px solid #181a1f; background-color: #282c34; color: #abb2bf; caret-color: #528bff; font-family: 'Fira Code', 'Courier New', monospace; font-size: 0.9rem; line-height: 1.5; padding: 15px; border-radius: 4px; box-sizing: border-box; outline: none; display: block; resize: vertical; max-height: 500px; overflow: auto; }
 .section-code textarea:focus { border-color: #4b5263; background-color: #2c313a; }
-
-/* Imagen */
 .section-image { padding: 20px; text-align: center; background-color: #fff; }
 .section-image img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; }
 </style>
